@@ -1,156 +1,27 @@
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
-
-
-import matplotlib.pyplot as plt
-import matplotlib
-import numpy as np
-import glob
-
-# import random
-# import shuffle
-import gzip
-# import numpy
-import cv2
-import skimage
-import tensorflow as tf
-import math
-import os
-import sys
-import time
-
-from sklearn.metrics import confusion_matrix
 from sklearn.utils import shuffle
-from sklearn.preprocessing import OneHotEncoder
-from six.moves import xrange  # pylint: disable=redefined-builtin
-from datetime import timedelta
+
+import numpy as np
 
 
-from tensorflow.python.framework import dtypes
-from tensorflow.python.framework import random_seed
-from tensorflow.python.framework import dtypes
-from tensorflow.python.framework import random_seed
-from tensorflow.python.platform import gfile
+import glob
+import cv2
+import os
 
+'''
+	you need to create the data object
+	Load the data with the load_data function
+	and then use the init to re-structure the data correctly.
+'''
 
-
-class data:
-	class train:
-		def tostring(self):
-			return "labels = {}, images = {}, cls = {}".format(len(self._labels), len(self._images), len(self.cls))
-
-		def tostring_long(self):
-			return "labels = {}, images = {}, cls = {}".format(self._labels, self._images, self.cls)
-
-		def images(self):
-			return self._images
-
-		def labels(self):
-			return self._labels
-
-		def num_examples(self):
-			return self._num_examples
-
-		def epochs_completed(self):
-			return self._epochs_completed
-
-		_index_in_epoch = 0
-		_epochs_completed = 0
-		_num_examples = 0
-		_labels = np.array([])
-		_images = np.array([])
-		cls = []
-
-	class test:
-		def tostring(self):
-			return "labels = {}, images = {}, cls = {}".format(len(self._labels), len(self._images), len(self.cls))
-
-		def tostring_long(self):
-			return "labels = {}, images = {}, cls = {}".format(self._labels, self._images, self.cls)
-
-		def images(self):
-			return self._images
-
-		def labels(self):
-			return self._labels
-
-		def num_examples(self):
-			return self._num_examples
-
-		def epochs_completed(self):
-			return self._epochs_completed
-
-		_name = ""
-
-		_index_in_epoch = 0
-		_epochs_completed = 0
-		_num_examples = 0
-		_labels = np.array([])
-		_images = np.array([])
-		cls = []
-
-	class validation:
-		def tostring(self):
-			return "labels = {}, images = {}, cls = {}".format(len(self._labels), len(self._images), len(self.cls))
-
-		def tostring_long(self):
-			return "labels = {}, images = {}, cls = {}".format(self._labels, self._images, self.cls)
-
-		def images(self):
-			return self._images
-
-		def labels(self):
-			return self._labels
-
-		def num_examples(self):
-			return self._num_examples
-
-		def epochs_completed(self):
-			return self._epochs_completed
-
-		_index_in_epoch = 0
-		_epochs_completed = 0
-		_num_examples = 0
-		_labels = np.array([])
-		_images = np.array([])
-		cls = []
-
-	def tostring(self):
-		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring(),
-																					 self.test.tostring(),
-																					 self.validation.tostring())
-
-	def tostring_long(self):
-		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring_long(),
-																					 self.test.tostring_long(),
-																					 self.validation.tostring_long())
-
-	_file_names = ''
-	train = train()
-	test = test()
-	validation = validation()
-
-
+# initiates some variables
 
 
 
 def next_batch(self, batch_size, shuffle=True):
 		"""Return the next `batch_size` examples from this data set."""
-
-		# print("\n")
-		# print("labels.shape = {}".format(self.labels.shape))
-		# print("images.shape = {}".format(self.images.shape))
-		# print("_labels.shape = {}".format(self._labels.shape))
-		# print("_images.shape = {}".format(self._images.shape))
-		# print("\n")
-		# print("self._index_in_epoch = {}".format(self._index_in_epoch))
-		# print("self._epochs_completed = {}".format(self._epochs_completed))
-		# print("self._num_examples = {}".format(self._num_examples))
-		# print("\n")
-
-
-
 		start = self._index_in_epoch
 		# Shuffle for the first epoch
 		if self._epochs_completed == 0 and start == 0 and shuffle:
@@ -180,19 +51,117 @@ def next_batch(self, batch_size, shuffle=True):
 			labels_new_part = self._labels[start:end]
 			return1 = np.concatenate((images_rest_part, images_new_part), axis=0)
 			return2 = np.concatenate((labels_rest_part, labels_new_part), axis=0)
-
-			# print("first return")
 			return return1, return2
 		else:
 			self._index_in_epoch += batch_size
 			end = self._index_in_epoch
-
-			#reshaping the labels
-			# because the array is structured [0,1,1,0,0,1,1,0,1,0,1,0] which will be [[0,1],[1,0],[0,1],[1,0],[1,0],[1,0]]
-			# so if you batch size is 64, you need 128 integers to make the output a (64, 2) shape array
-			# printer = start
-			# helper = start+(batch_size*2)
-			# _label_reshaper = self._labels[start:helper]
-			# _label_reshaper = _label_reshaper.reshape(-1, 2)
-			# tester = _label_reshaper.shape
 			return self._images[start:end], self._labels[start:end]
+
+
+def load_data(data_directory, file_name_identifier, img_size_flat, file_format="png"):
+	# data_directory is the directoy where the data is located. if you are loading from the ./training_data/ folder then this should be /training_data
+	# file_name_identifier is a unique identifier that should be present in only one of the classes filenames
+	# img_size_flat is the product of image height timed by image width. E.g in a 100x100 picture it would be 100 * 100 = 10 000
+	# NOTE: this only works for images which are a square with sides ABCD where A=B=C=D. E.g. 4 equal sides
+
+	# load all files in path
+	files = glob.glob(os.path.join(data_directory, "*.{}".format(file_format)))
+
+	# init labels and images
+	labels = []
+	images = []
+
+	for f in files:
+		# read the image as a ndarray
+		image = cv2.imread(f, 0)
+		image = np.asarray(image, dtype="float32")
+		# image = image.flatten()
+		# add current image to image list
+		images.append(image)
+		# print("images = {}".format(type(images)))
+		# convert filename to 0 or 1 based on if it contains kw or not
+
+		label = 0
+		if f.find(file_name_identifier) == -1:
+			label = 1
+		# add label to labels list
+		labels.append(label)
+
+	# shuffle both lists in the same order eg. x = [1, 2, 3], y = [1, 2, 3] ----> x = [3, 1, 2], y = [3, 1, 2]
+	images, labels = shuffle(images, labels, random_state=0)
+	# converts the images and labels to np_arrays for use with the tensorflow functions
+	images = np.asarray(images)
+	labels = np.asarray(labels)
+
+	# reshapes the images to be of the correct shape
+	images = images.reshape(-1, img_size_flat)
+	return images, labels
+
+
+def one_hot_encode(labels):
+	# creates an array for the labels
+	one_hot_labels = []
+	for label in labels:
+		if label == 0:
+			one_hot_labels.append([0, 1])  # appends the labels array with a one hot coded label for 0
+		else:
+			one_hot_labels.append([1, 0])  # appends the labels array with a one hot coded label for 0
+	one_hot_labels = np.asarray(one_hot_labels)  # converts the array to np_array
+	return one_hot_labels
+
+
+class data:
+
+	class set:
+
+		def tostring(self):
+			return "labels = {}, images = {}, cls = {}".format(len(self._labels), len(self._images), len(self.cls))
+
+		def tostring_long(self):
+			return "labels = {}, images = {}, cls = {}".format(self._labels, self._images, self.cls)
+
+		def images(self):
+			return self._images
+
+		def labels(self):
+			return self._labels
+
+		def num_examples(self):
+			return self._num_examples
+
+		def epochs_completed(self):
+			return self._epochs_completed
+
+		def init(self):
+			self._num_examples = len(self.images)
+			self.labels = one_hot_encode(self.labels)
+			self._images = self.images
+			self._labels = self.labels
+			return self
+
+		_index_in_epoch = 0
+		_epochs_completed = 0
+		_num_examples = 0
+		_labels = np.array([])
+		_images = np.array([])
+		cls = []
+
+	def tostring(self):
+		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring(),
+																					 self.test.tostring(),
+																					 self.validation.tostring())
+
+	def tostring_long(self):
+		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring_long(),
+																					 self.test.tostring_long(),
+																					 self.validation.tostring_long())
+
+
+
+	_file_names = ''
+	train = set()
+	test = set()
+	validation = set()
+
+
+

@@ -1,0 +1,305 @@
+import tensorflow as tf
+import numpy as np
+import utils
+import vgg19
+import style_transfer
+from data import *
+import matplotlib.pyplot as plt
+
+import os
+
+import argparse
+
+# disables cpu instruction warnings
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+
+
+
+content = "style/content.jpeg"
+style = "style/style.jpg"
+output = "result.jpg"
+
+model_path = "pre_trained_model"
+loss_ratio = 0.001
+content_layers = {'conv4_2': 1.0}
+style_layers = {"relu1_1": 2.0, "relu2_1": 2.0, "relu3_1": 2.0, "relu4_1": 2.0, "relu5_1": 2.0}
+max_size = 512
+num_iter = 1
+initial_type = 'content'
+content_loss_norm_type = 3
+
+
+
+
+# VGG19 requires input dimension to be (batch, height, width, channel)
+def add_one_dim(image):
+	shape = (1,) + image.shape
+	return np.reshape(image, shape)
+
+
+def new_fc_layer(input, num_inputs, num_outputs, use_relu=True):  # Use Rectified Linear Unit (ReLU)?
+	# input = The previous layer.
+	# num_inputs = Num. inputs from prev. layer.
+	# num_outputs = Num. outputs.
+
+	# Create new weights and biases.
+	weights = new_weights(shape=[num_inputs, num_outputs])
+	biases = new_biases(length=num_outputs)
+
+	# Calculate the layer as the matrix multiplication of
+	# the input and weights, and then add the bias-values.
+	layer = tf.matmul(input, weights) + biases
+
+	# Use ReLU?
+	if use_relu:
+		layer = tf.nn.relu(layer)
+
+	return layer
+
+
+def flatten_layer(layer):
+	# Get the shape of the input layer.
+	layer_shape = layer.get_shape()
+
+	# The shape of the input layer is assumed to be:
+	# layer_shape == [num_images, img_height, img_width, num_channels]
+
+	# The number of features is: img_height * img_width * num_channels
+	# We can use a function from TensorFlow to calculate this.
+	num_features = layer_shape[1:4].num_elements()
+
+	# Reshape the layer to [num_images, num_features].
+	# Note that we just set the size of the second dimension
+	# to num_features and the size of the first dimension to -1
+	# which means the size in that dimension is calculated
+	# so the total size of the tensor is unchanged from the reshaping.
+	layer_flat = tf.reshape(layer, [-1, num_features])
+
+	# The shape of the flattened layer is now:
+	# [num_images, img_height * img_width * num_channels]
+
+	# Return both the flattened layer and the number of features.
+	return layer_flat, num_features
+
+
+def new_conv_layer(input, num_input_channels, filter_size, num_filters, use_pooling=True):  # Use 2x2 max-pooling.
+	# input = The previous layer.
+	# num_input_channels = Num. channels in prev. layer.
+	# filter_size = Width and height of each filter.
+	# num_filters = Number of filters.
+
+	# Shape of the filter-weights for the convolution.
+	# This format is determined by the TensorFlow API.
+	shape = [filter_size, filter_size, num_input_channels, num_filters]
+
+	# Create new weights aka. filters with the given shape.
+	weights = new_weights(shape=shape)
+
+	# Create new biases, one for each filter.
+	biases = new_biases(length=num_filters)
+
+	# Create the TensorFlow operation for convolution.
+	# Note the strides are set to 1 in all dimensions.
+	# The first and last stride must always be 1,
+	# because the first is for the image-number and
+	# the last is for the input-channel.
+	# But e.g. strides=[1, 2, 2, 1] would mean that the filter
+	# is moved 2 pixels across the x- and y-axis of the image.
+	# The padding is set to 'SAME' which means the input image
+	# is padded with zeroes so the size of the output is the same.
+	layer = tf.nn.conv2d(input=input,
+						 filter=weights,
+						 strides=[1, 1, 1, 1],
+						 padding='SAME')
+
+	# Add the biases to the results of the convolution.
+	# A bias-value is added to each filter-channel.
+	layer += biases
+
+	# Use pooling to down-sample the image resolution?
+	if use_pooling:
+		# This is 2x2 max-pooling, which means that we
+		# consider 2x2 windows and select the largest value
+		# in each window. Then we move 2 pixels to the next window.
+		layer = tf.nn.max_pool(value=layer,
+							   ksize=[1, 2, 2, 1],
+							   strides=[1, 2, 2, 1],
+							   padding='SAME')
+
+	# Rectified Linear Unit (ReLU).
+	# It calculates max(x, 0) for each input pixel x.
+	# This adds some non-linearity to the formula and allows us
+	# to learn more complicated functions.
+	layer = tf.nn.relu(layer)
+
+	# Note that ReLU is normally executed before the pooling,
+	# but since relu(max_pool(x)) == max_pool(relu(x)) we can
+	# save 75% of the relu-operations by max-pooling first.
+
+	# We return both the resulting layer and the filter-weights
+	# because we will plot the weights later.
+	return layer, weights
+
+
+def new_biases(length):
+	return tf.Variable(tf.constant(0.05, shape=[length]))
+
+
+def new_weights(shape):
+	return tf.Variable(tf.truncated_normal(shape, stddev=0.05))
+
+
+def initiate():
+	# data.train.images, data.train.labels = load_data(validation_data_directory, file_name_identifier, img_size_flat)
+	# data.test.images, data.test.labels = load_data(validation_data_directory, file_name_identifier, img_size_flat)
+	# data.validation.images, data.validation.labels = load_data(validation_data_directory, file_name_identifier, img_size_flat)
+	# data.train = init(data.train)
+	# data.test = init(data.test)
+	# data.validation = init(data.validation)
+	# data.train._name = "train"
+	# data.test._name = "test"
+	# data.validation._name = "validation"
+	# data.test.cls = np.argmax(data.test.labels, axis=1)
+
+	img_size = 100  # size of the images
+	img_size_flat = img_size * img_size  # Images are stored in one-dimensional arrays of this length.
+	num_channels = 1  # Number of color channels for the images: 1 channel for gray-scale.
+	num_classes = 2  # Number of classes, one class for each of 10 digits.
+	test_size = 10
+	filter_size1 = test_size
+	num_filters1 = 16
+	filter_size2 = test_size
+	num_filters2 = 36
+	fc_size = 128
+
+	x = tf.placeholder(tf.float32, shape=[None, img_size_flat], name='x')
+	x_image = tf.reshape(x, [-1, img_size, img_size, num_channels])
+	y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
+	y_true_cls = tf.argmax(y_true, axis=1)
+
+	layer_conv1, weights_conv1 = new_conv_layer(input=x_image, num_input_channels=num_channels,
+												filter_size=filter_size1, num_filters=num_filters1, use_pooling=True)
+
+	layer_conv2, weights_conv2 = new_conv_layer(input=layer_conv1, num_input_channels=num_filters1,
+												filter_size=filter_size2, num_filters=num_filters2, use_pooling=True)
+
+	layer_flat, num_features = flatten_layer(layer_conv2)
+
+	layer_fc1 = new_fc_layer(input=layer_flat, num_inputs=num_features, num_outputs=fc_size, use_relu=True)
+
+	layer_fc2 = new_fc_layer(input=layer_fc1, num_inputs=fc_size, num_outputs=num_classes, use_relu=False)
+
+	y_pred = tf.nn.softmax(layer_fc2)
+	y_pred_cls = tf.argmax(y_pred, axis=1)
+	cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=layer_fc2,
+															   labels=y_true)
+	cost = tf.reduce_mean(cross_entropy)
+	optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cost)
+	correct_prediction = tf.equal(y_pred_cls, y_true_cls)
+	accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+	saver = tf.train.Saver()
+
+
+
+	return data, x, x_image, y_true, y_true_cls, layer_conv1, layer_conv2, weights_conv1, weights_conv2, layer_flat, \
+		   num_features, layer_fc1, layer_fc1, layer_fc2, y_pred, y_pred_cls, cost, optimizer, correct_prediction, \
+		   accuracy, saver
+
+def plot_image(image, name=""):
+    fig = plt.figure(0)
+    # Sets the title of the figure window
+    fig.canvas.set_window_title(name)
+    plt.suptitle(name)
+    plt.imshow(interpolation='nearest',
+			   cmap='gray')
+    plt.show()
+
+
+"""main"""
+
+
+def main():
+
+	# initiate VGG19 model
+	model_file_path = model_path + '/' + vgg19.MODEL_FILE_NAME
+	vgg_net = vgg19.VGG19(model_file_path)
+
+	# load content image and style image
+	content_image = utils.load_image(content, max_size=max_size)
+	style_image = utils.load_image(style, shape=(content_image.shape[1], content_image.shape[0]))
+
+	# initial guess for output
+	if initial_type == 'content':
+		init_image = content_image
+	elif initial_type == 'style':
+		init_image = style_image
+	elif initial_type == 'random':
+		init_image = np.random.normal(size=content_image.shape, scale=np.std(content_image))
+
+	# check input images for style-transfer
+	# utils.plot_images(content_image,style_image, init_image)
+
+	# create a map for content layers info
+	# CONTENT_LAYERS = {}
+	# for layer, weight in zip(content_layers, content_layer_weights):
+	# 	CONTENT_LAYERS[layer] = weight
+
+	# create a map for style layers info
+	# STYLE_LAYERS = {}
+	# for layer, weight in zip(style_layers, style_layer_weights):
+	# 	STYLE_LAYERS[layer] = weight
+
+	# open session
+	sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+
+	# build the graph
+
+	session = tf.Session()
+	session.run(tf.global_variables_initializer())
+
+	data, x, x_image, y_true, y_true_cls, layer_conv1, layer_conv2, weights_conv1, weights_conv2, layer_flat, \
+	num_features, layer_fc1, layer_fc1, layer_fc2, y_pred, y_pred_cls, cost, optimizer, correct_prediction, \
+	accuracy, saver = initiate()
+
+	load_dir = 'checkpoints'
+	if not os.path.exists(load_dir):
+		os.makedirs(load_dir)
+
+	load_path = os.path.join(load_dir, 'best_validation')
+	saver.restore(sess=session, save_path=load_path)
+
+	print("Session at {} has been restored successfully".format(load_path))
+
+	st = style_transfer.StyleTransfer(session=sess,
+	                                  content_layer_ids=content_layers,
+	                                  style_layer_ids=style_layers,
+	                                  init_image=add_one_dim(init_image),
+	                                  content_image=add_one_dim(content_image),
+	                                  style_image=add_one_dim(style_image),
+	                                  net=vgg_net,
+	                                  num_iter=num_iter,
+	                                  loss_ratio=loss_ratio,
+	                                  content_loss_norm_type=content_loss_norm_type,
+	                                  )
+
+	# launch the graph in a session
+	result_image = st.update(num_iter)
+	# close session
+	sess.close()
+
+	# remove batch dimension
+	shape = result_image.shape
+	result_image = np.reshape(result_image, shape[1:])
+
+	plt.imshow(result_image / 255.0, interpolation='sinc')
+	plt.show()
+
+	# save result
+	# utils.save_image(result_image, output)
+
+
+# utils.plot_images(content_image,style_image, result_image)
+
+if __name__ == '__main__':
+	main()
