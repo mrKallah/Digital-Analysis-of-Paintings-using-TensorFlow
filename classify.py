@@ -58,9 +58,12 @@ fc_size = 128  # Number of neurons in fully-connected layer.
 
 
 def initiate():
-	data.test.images, data.test.labels = load_data(data_directory, file_name_identifier, image_size_flat)
+	data.test.images, data.test.labels = load_data(data_directory, file_name_identifier, image_size_flat, num_channels, augment=False)
 	data.test = data.test.init()
 	data.test._name = "test"
+
+	print(data.test.labels)
+
 	data.test.cls = np.argmax(data.test.labels, axis=1)
 
 

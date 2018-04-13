@@ -1,20 +1,25 @@
-
 from IPython.display import Image, display
+
 Image('images/15_style_transfer_flowchart.png')
 import matplotlib.pyplot as plt
 import tensorflow as tf
 import numpy as np
 import PIL.Image
 import os
+import cv2
 
 import VGG16
 import style_data
 
+
+
+print_tmp = "####" #this is for testing purposes and can be removed xxx
+
 # disables cpu instruction warnings
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
-style_filename = 'images/style.jpg'
-content_filename = 'images/content.jpg'
+style_image_path = 'images/style.jpg'
+content_image_path = 'images/content.jpg'
 num_iterations = 120
 
 
@@ -42,14 +47,14 @@ def load_image(filename, max_size=None):
 
 
 def plot_image_big(image):
-    # Ensure the pixel-values are between 0 and 255.
-    image = np.clip(image, 0.0, 255.0)
+	# Ensure the pixel-values are between 0 and 255.
+	image = np.clip(image, 0.0, 255.0)
 
-    # Convert pixels to bytes.
-    image = image.astype(np.uint8)
+	# Convert pixels to bytes.
+	image = image.astype(np.uint8)
 
-    # Convert to a PIL-image and display it.
-    display(PIL.Image.fromarray(image))
+	# Convert to a PIL-image and display it.
+	display(PIL.Image.fromarray(image))
 
 
 def plot_images(content_image, style_image, mixed_image):
@@ -96,7 +101,7 @@ def plot_images(content_image, style_image, mixed_image):
 
 
 def mean_squared_error(a, b):
-    return tf.reduce_mean(tf.square(a - b))
+	return tf.reduce_mean(tf.square(a - b))
 
 
 def create_content_loss(session, model, content_image, layer_ids):
@@ -111,13 +116,27 @@ def create_content_loss(session, model, content_image, layer_ids):
 	"""
 
 	# Create a feed-dict with the content-image.
-	feed_dict = model.create_feed_dict(image=content_image)
+
+
+	feed_dict = model.create_feed_dict(model, content_image, layer_ids)
 
 	# Get references to the tensors for the given layers.
-	layers = model.get_layer_tensors(layer_ids)
+	layers = model.get_layer_tensors(model, layer_ids)
 
 	# Calculate the output values of those layers when
 	# feeding the content-image to the model.
+
+	print("#################### create_content_loss() ####################")
+
+	print("layer_ids = {}".format(layer_ids))
+	print("layers = {}".format(layers))
+
+	print("feed_dict = {}".format(feed_dict))
+	print("feed_dict['content:0'].shape = {}".format(feed_dict['content:0'].shape))
+
+	print("content_image.shape = {}".format(content_image.shape))
+	print("content_image = {}".format(content_image))
+	print("###############################################################")
 	values = session.run(layers, feed_dict=feed_dict)
 
 	# Set the model's graph as the default so we can add
@@ -163,7 +182,7 @@ def gram_matrix(tensor):
 
 	# Get the number of feature channels for the input tensor,
 	# which is assumed to be from a convolutional layer with 4-dim.
-	num_channels = int(shape[3])
+	num_channels = int(shape[1])
 
 	# Reshape the tensor so it is a 2-dim matrix. This essentially
 	# flattens the contents of each feature-channel.
@@ -187,12 +206,19 @@ def create_style_loss(session, model, style_image, layer_ids):
 	style_image: Numpy float array with the style-image.
 	layer_ids: List of integer id's for the layers to use in the model.
 	"""
+	print("#################### create_style_loss() ####################")
+
+	print("content_image.shape = {}".format(style_image.shape))
+	print("content_image = {}".format(style_image))
+	print("layer_ids = {}".format(layer_ids))
+
+
 
 	# Create a feed-dict with the style-image.
-	feed_dict = model.create_feed_dict(image=style_image)
+	feed_dict = model.create_feed_dict(model, style_image, layer_ids)
 
 	# Get references to the tensors for the given layers.
-	layers = model.get_layer_tensors(layer_ids)
+	layers = model.get_layer_tensors(model, layer_ids)
 
 	# Set the model's graph as the default so we can add
 	# computational nodes to it. It is not always clear
@@ -203,21 +229,34 @@ def create_style_loss(session, model, style_image, layer_ids):
 		# the Gram-matrices for each of the layers.
 		gram_layers = [gram_matrix(layer) for layer in layers]
 
+
+
+		print("gram_layers = {}".format(gram_layers))
+		print("layers = {}".format(layers))
+		print("feed_dict['y_true:0'].shape = {}".format(feed_dict['y_true:0'].shape))
+
+		print("###############################################################")
+
+		print("zero")
+
 		# Calculate the values of those Gram-matrices when
 		# feeding the style-image to the model.
 		values = session.run(gram_layers, feed_dict=feed_dict)
 
+		print("one")
+
 		# Initialize an empty list of loss-functions.
 		layer_losses = []
-
+		print("two")
 		# For each Gram-matrix layer and its corresponding values.
 		for value, gram_layer in zip(values, gram_layers):
 			# These are the Gram-matrix values that are calculated
 			# for this layer in the model when inputting the
 			# style-image. Wrap it to ensure it is a const,
 			# although this may be done automatically by TensorFlow.
+			print("three")
 			value_const = tf.constant(value)
-
+			print("four")
 			# The loss-function for this layer is the
 			# Mean Squared Error between the Gram-matrix values
 			# for the content- and mixed-images.
@@ -225,27 +264,43 @@ def create_style_loss(session, model, style_image, layer_ids):
 			# yet, we are merely creating the operations
 			# for calculating the MSE between those two.
 			loss = mean_squared_error(gram_layer, value_const)
+			print("five")
 
 			# Add the loss-function for this layer to the
 			# list of loss-functions.
 			layer_losses.append(loss)
+			print("six")
 
 		# The combined loss for all layers is just the average.
 		# The loss-functions could be weighted differently for
 		# each layer. You can try it and see what happens.
 		total_loss = tf.reduce_mean(layer_losses)
+		print("seven")
 
 	return total_loss
 
 
 def create_denoise_loss(model):
-    loss = tf.reduce_sum(tf.abs(model.input[:,1:,:,:] - model.input[:,:-1,:,:])) + \
-           tf.reduce_sum(tf.abs(model.input[:,:,1:,:] - model.input[:,:,:-1,:]))
+	loss = tf.reduce_sum(tf.abs(model.input[:, 1:, :, :] - model.input[:, :-1, :, :])) + \
+	       tf.reduce_sum(tf.abs(model.input[:, :, 1:, :] - model.input[:, :, :-1, :]))
 
-    return loss
+	return loss
 
 
-def style_transfer(content_image, style_image, content_layer_ids, style_layer_ids, weight_content=1.5, weight_style=10.0,
+def get_image(path):
+	image = cv2.imread(path, 0)
+	image = np.asarray(image, dtype="float32")
+
+	image = cv2.resize(image, (100, 100))
+
+	content_image = np.reshape(image, (-1, 10000))
+
+	return content_image
+
+
+first_run = True
+def style_transfer(content_image, style_image, content_layer_ids, style_layer_ids, weight_content=1.5,
+                   weight_style=10.0,
                    weight_denoise=0.3, num_iterations=120, step_size=10.0):
 	"""
 	Use gradient descent to find an image that minimizes the
@@ -270,37 +325,41 @@ def style_transfer(content_image, style_image, content_layer_ids, style_layer_id
 	# in each call of this function, because we will add
 	# operations to the graph so it can grow very large
 	# and run out of RAM if we keep using the same instance.
-	model_old = VGG16.VGG16()
-	model = style_data.graph()
 
-	print(model_old.graph)
-	print(model)
-	exit(0)
+
+	global first_run
+	if first_run == True:
+		model = style_data.init()
+	else:
+		model = style_data
+	first_run = False
 
 
 	# Create a TensorFlow-session.
 	session = tf.InteractiveSession(graph=model.graph)
 
+	print("#################### style_transfer() ####################")
 	# Print the names of the content-layers.
 	print("Content layers:")
-	print(model.get_layer_names(content_layer_ids))
+	print(model.get_layer_names(model, content_layer_ids))
 	print()
 
 	# Print the names of the style-layers.
 	print("Style layers:")
-	print(model.get_layer_names(style_layer_ids))
+	print(model.get_layer_names(model, style_layer_ids))
 	print()
+	print("###############################################################")
 
 	# Create the loss-function for the content-layers and -image.
 	loss_content = create_content_loss(session=session,
 	                                   model=model,
-	                                   content_image=content_image,
+	                                   content_image=get_image(content_image_path),
 	                                   layer_ids=content_layer_ids)
 
 	# Create the loss-function for the style-layers and -image.
 	loss_style = create_style_loss(session=session,
 	                               model=model,
-	                               style_image=style_image,
+	                               style_image=get_image(style_image_path),
 	                               layer_ids=style_layer_ids)
 
 	# Create the loss-function for the denoising of the mixed-image.
@@ -393,41 +452,29 @@ def style_transfer(content_image, style_image, content_layer_ids, style_layer_id
 	return mixed_image
 
 
-
 def main():
-	content_image = load_image(content_filename, max_size=None)
-	style_image = load_image(style_filename, max_size=300)
+	content_image = load_image(content_image_path, max_size=None)
+	style_image = load_image(style_image_path, max_size=300)
 
-	content_layer_ids = [4]
+	content_layer_ids = [0]
 
-	#the layers of the model to load
-	style_layer_ids = list(range(2))
+	# the layers of the model to load
+	style_layer_ids = [1]
 
-	img = style_transfer(   content_image=content_image,
-							style_image=style_image,
-							content_layer_ids=content_layer_ids,
-							style_layer_ids=style_layer_ids,
-							weight_content=1.5,
-							weight_style=10.0,
-							weight_denoise=0.3,
-							num_iterations=num_iterations,
-							step_size=10.0)
-
+	img = style_transfer(content_image=content_image,
+	                     style_image=style_image,
+	                     content_layer_ids=content_layer_ids,
+	                     style_layer_ids=style_layer_ids,
+	                     weight_content=1.5,
+	                     weight_style=10.0,
+	                     weight_denoise=0.3,
+	                     num_iterations=num_iterations,
+	                     step_size=10.0)
 
 	print("\nFinal image:")
 	plot_image_big(img)
 
+
 if __name__ == "__main__":
 	# stuff only to run when not called via 'import' here
 	main()
-
-
-
-
-
-
-
-
-
-
-

@@ -5,7 +5,6 @@ from sklearn.utils import shuffle
 
 import numpy as np
 
-
 import glob
 import cv2
 import os
@@ -16,56 +15,56 @@ import os
 	and then use the init to re-structure the data correctly.
 '''
 
-# initiates some variables
-
-
 
 def next_batch(self, batch_size, shuffle=True):
-		"""Return the next `batch_size` examples from this data set."""
-		start = self._index_in_epoch
-		# Shuffle for the first epoch
-		if self._epochs_completed == 0 and start == 0 and shuffle:
-			perm0 = np.arange(self._num_examples)
-			np.random.shuffle(perm0)
-			self._images = self.images[perm0]
-			self._labels = self.labels[perm0]
-		# Go to the next epoch
-		if start + batch_size > self._num_examples:
-			# Finished epoch
-			self._epochs_completed += 1
-			# Get the rest examples in this epoch
-			rest_num_examples = self._num_examples - start
-			images_rest_part = self._images[start:self._num_examples]
-			labels_rest_part = self._labels[start:self._num_examples]
-			# Shuffle the data
-			if shuffle:
-				perm = np.arange(self._num_examples)
-				np.random.shuffle(perm)
-				self._images = self.images[perm]
-				self._labels = self.labels[perm]
-			# Start next epoch
-			start = 0
-			self._index_in_epoch = batch_size - rest_num_examples
-			end = self._index_in_epoch
-			images_new_part = self._images[start:end]
-			labels_new_part = self._labels[start:end]
-			return1 = np.concatenate((images_rest_part, images_new_part), axis=0)
-			return2 = np.concatenate((labels_rest_part, labels_new_part), axis=0)
-			return return1, return2
-		else:
-			self._index_in_epoch += batch_size
-			end = self._index_in_epoch
-			return self._images[start:end], self._labels[start:end]
+	"""Return the next `batch_size` examples from this data set."""
+	start = self._index_in_epoch
+	# Shuffle for the first epoch
+	if self._epochs_completed == 0 and start == 0 and shuffle:
+		perm0 = np.arange(self._num_examples)
+		np.random.shuffle(perm0)
+		self._images = self.images[perm0]
+		self._labels = self.labels[perm0]
+	# Go to the next epoch
+	if start + batch_size > self._num_examples:
+		# Finished epoch
+		self._epochs_completed += 1
+		# Get the rest examples in this epoch
+		rest_num_examples = self._num_examples - start
+		images_rest_part = self._images[start:self._num_examples]
+		labels_rest_part = self._labels[start:self._num_examples]
+		# Shuffle the data
+		if shuffle:
+			perm = np.arange(self._num_examples)
+			np.random.shuffle(perm)
+			self._images = self.images[perm]
+			self._labels = self.labels[perm]
+		# Start next epoch
+		start = 0
+		self._index_in_epoch = batch_size - rest_num_examples
+		end = self._index_in_epoch
+		images_new_part = self._images[start:end]
+		labels_new_part = self._labels[start:end]
+		return1 = np.concatenate((images_rest_part, images_new_part), axis=0)
+		return2 = np.concatenate((labels_rest_part, labels_new_part), axis=0)
+		return return1, return2
+	else:
+		self._index_in_epoch += batch_size
+		end = self._index_in_epoch
+		return self._images[start:end], self._labels[start:end]
 
 
-def load_data(data_directory, file_name_identifier, img_size_flat, file_format="png"):
+def load_data(data_directory, file_name_identifier, img_size_flat, channels, file_format="png", augment=True):
 	# data_directory is the directoy where the data is located. if you are loading from the ./training_data/ folder then this should be /training_data
 	# file_name_identifier is a unique identifier that should be present in only one of the classes filenames
 	# img_size_flat is the product of image height timed by image width. E.g in a 100x100 picture it would be 100 * 100 = 10 000
 	# NOTE: this only works for images which are a square with sides ABCD where A=B=C=D. E.g. 4 equal sides
 
 	# load all files in path
-	files = glob.glob(os.path.join(data_directory, "*.{}".format(file_format)))
+	if augment == True:
+		files = glob.glob(os.path.join(data_directory, "augmented/", "*.{}".format(file_format)))
+	else:
+		files = glob.glob(os.path.join(data_directory, "*.{}".format(file_format)))
 
 	# init labels and images
 	labels = []
@@ -73,14 +72,17 @@ def load_data(data_directory, file_name_identifier, img_size_flat, file_format="
 
 	for f in files:
 		# read the image as a ndarray
-		image = cv2.imread(f, 0)
+		if channels == 1:
+			image = cv2.imread(f, 0)
+		else:
+			image = cv2.imread(f, channels)
+
 		image = np.asarray(image, dtype="float32")
-		# image = image.flatten()
+
 		# add current image to image list
 		images.append(image)
-		# print("images = {}".format(type(images)))
-		# convert filename to 0 or 1 based on if it contains kw or not
 
+		# convert filename to 0 or 1 based on if it contains kw or not
 		label = 0
 		if f.find(file_name_identifier) == -1:
 			label = 1
@@ -111,7 +113,6 @@ def one_hot_encode(labels):
 
 
 class data:
-
 	class set:
 
 		def tostring(self):
@@ -148,20 +149,15 @@ class data:
 
 	def tostring(self):
 		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring(),
-																					 self.test.tostring(),
-																					 self.validation.tostring())
+		                                                                             self.test.tostring(),
+		                                                                             self.validation.tostring())
 
 	def tostring_long(self):
 		return "[\n\ttrain = [{}], \n\ttest = [{}], \n\tvalidation = [{}]\n]".format(self.train.tostring_long(),
-																					 self.test.tostring_long(),
-																					 self.validation.tostring_long())
-
-
+		                                                                             self.test.tostring_long(),
+		                                                                             self.validation.tostring_long())
 
 	_file_names = ''
 	train = set()
 	test = set()
 	validation = set()
-
-
-

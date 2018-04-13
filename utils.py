@@ -32,7 +32,12 @@ def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, cls_pred
 	:param cls_pred: the predicted classes, default: None
 	:param name: title of plot, default: ""
 	'''
-	assert len(images) == len(cls_true) == 9
+
+	try:
+		assert len(images) == len(cls_true) == 9
+	except:
+		return
+
 
 	# Create figure with 3x3 sub-plots.
 	fig, axes = plt.subplots(3, 3)

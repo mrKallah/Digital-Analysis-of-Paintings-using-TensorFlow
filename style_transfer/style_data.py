@@ -76,6 +76,11 @@ def initiate():
 
 	x = tf.placeholder(tf.float32, shape=[None, image_size_flat], name='x')
 	x_image = tf.reshape(x, [-1, image_size, image_size, num_channels])
+
+	x2 = tf.placeholder(tf.float32, shape=[None, image_size_flat], name='x2')
+	x2_image = tf.reshape(x2, [-1, image_size, image_size, num_channels])
+
+
 	y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
 	y_true_cls = tf.argmax(y_true, axis=1)
 
@@ -106,9 +111,7 @@ def initiate():
 
 	return data, x, x_image, y_true, y_true_cls, layer_conv1, layer_conv2, weights_conv1, weights_conv2, layer_flat, \
 		   num_features, layer_fc1, layer_fc1, layer_fc2, y_pred, y_pred_cls, cost, optimizer, correct_prediction, \
-		   accuracy, saver
-
-
+		   accuracy, saver, x2, x2_image
 
 '''
 	you need to create the data object
@@ -117,7 +120,6 @@ def initiate():
 '''
 
 # initiates some variables
-
 
 
 def next_batch(self, batch_size, shuffle=True):
@@ -228,24 +230,50 @@ def graph():
 
 	data, x, x_image, y_true, y_true_cls, layer_conv1, layer_conv2, weights_conv1, weights_conv2, layer_flat, \
 	num_features, layer_fc1, layer_fc1, layer_fc2, y_pred, y_pred_cls, cost, optimizer, correct_prediction, \
-	accuracy, saver = initiate()
+	accuracy, saver, x2, x2_image = initiate()
 
 	load_dir = 'resized/load/meta'
+	load_dir2 = 'resized/load/checkpoints'
 	load_path_meta = os.path.join(load_dir, 'best_validation.meta')
 	load_path = os.path.join(load_dir, 'best_validation')
+	load_path2 = os.path.join(load_dir2, 'best_validation')
 
 	new_saver = tf.train.import_meta_graph(load_path_meta)
+	saver.restore(sess=session, save_path=load_path2)
+
+
 
 	w1 = graph.get_tensor_by_name("x:0")
-	w2 = graph.get_tensor_by_name("y_true:0")
+	w2 = graph.get_tensor_by_name("x2:0")
+	w3 = graph.get_tensor_by_name("y_true:0")
+
+
+
+
+	w1 = tf.identity(w1, name="style")
+	w2 = tf.identity(w2, name="content")
 
 	print("Session at {} has been restored successfully".format(load_path))
 
-	return [w1, w2]
+	arr = [w1, w2, w3]
+
+	return graph, session, arr
+
+
+def init():
+	style_data.set.graph, style_data.set._session, style_data.set.layer_tensors = graph()
+	return style_data.set
+
 
 class style_data:
 
 	class set:
+		layer_names = ['content:0', 'style:0', 'y_true:0']
+
+
+		# Names of the tensors for the dropout random-values.. not sure if this works
+		tensor_name_dropout = 'dropout/random_uniform:0'
+		tensor_name_dropout1 = 'dropout_1/random_uniform:0'
 
 		def tostring(self):
 			return "labels = {}, images = {}, cls = {}".format(len(self._labels), len(self._images), len(self.cls))
@@ -271,6 +299,40 @@ class style_data:
 			self._images = self.images
 			self._labels = self.labels
 			return self
+
+		def get_layer_names(self, layer_ids):
+			return [self.layer_names[idx] for idx in layer_ids]
+
+		def create_feed_dict(self, image, id):
+			"""
+			Create and return a feed-dict with an image.
+			:param image:
+				The input image is a 3-dim array which is already decoded.
+				The pixels MUST be values between 0 and 255 (float or int).
+			:return:
+				Dict for feeding to the graph in TensorFlow.
+			"""
+			# Create feed-dict for inputting data to TensorFlow.
+			feed_dict = {self.layer_names[id[0]]: image}
+
+			print("#################### create_feed_dict() ####################")
+			print("self.layer_names = {}".format(self.layer_names))
+			print("image.shape = {}".format(image.shape))
+			print("id = {}".format(id))
+			print("feed_dict = {}".format(feed_dict))
+			print("###############################################################")
+
+
+
+			return feed_dict
+
+		def get_layer_tensors(self, layer_ids):
+			"""
+			Return a list of references to the tensors for the layers with the given id's.
+			"""
+			test = [self.layer_tensors[idx] for idx in layer_ids]
+
+			return test
 
 		_index_in_epoch = 0
 		_epochs_completed = 0

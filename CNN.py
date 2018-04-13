@@ -42,6 +42,7 @@ import time
 #local imports
 import utils as utils
 from data import *
+import augment as aug
 
 #############################################################################################
 ####################											#############################
@@ -73,12 +74,12 @@ false = False
 none = None
 
 
-optimization_iterations = 1 					# The amount of iterations for the optimization
-print_regularity = 1  			    			# How often the training accuracy is printed during optimization
+optimization_iterations = 100 					# The amount of iterations for the optimization
+print_regularity = 10                           # How often the training accuracy is printed during optimization
 image_size = 100 								# size of the images
 image_size_flat = image_size * image_size  	    # Images are stored in one-dimensional arrays of this length.
 image_shape = (image_size, image_size)  		# Tuple with height and width of images used to reshape arrays.
-num_channels = 1  								# Number of color channels for the images: 1 channel for gray-scale.
+num_channels = 1  								# Number of color channels for the images: 1 channel for gray-scale, 3 for color
 num_classes = 2  								# Number of classes, one class for each of 10 digits.
 plt_show = true  								# To show the plotted values set to true, to never plot anything set to false
 class_zero = "rand"
@@ -294,20 +295,38 @@ def exit(msg="Program exited as expected with exit function", exit_code=-1):
 
 
 def initiate():
-	data.train.images, data.train.labels = load_data(train_data_directory, file_name_identifier, image_size_flat)
-	data.test.images, data.test.labels = load_data(test_data_directory, file_name_identifier, image_size_flat)
-	data.validation.images, data.validation.labels = load_data(validation_data_directory, file_name_identifier, image_size_flat)
+
+	print("Preparing data")
+	aug.prepare_data(train_data_directory, file_name_identifier, image_shape, num_channels)
+	aug.prepare_data(test_data_directory, file_name_identifier, image_shape, num_channels)
+	aug.prepare_data(validation_data_directory, file_name_identifier, image_shape, num_channels)
+
+
+	print("Loading data")
+	data.train.images, data.train.labels = load_data(train_data_directory, file_name_identifier, image_size_flat, num_channels)
+	data.test.images, data.test.labels = load_data(test_data_directory, file_name_identifier, image_size_flat, num_channels)
+	data.validation.images, data.validation.labels = load_data(validation_data_directory, file_name_identifier, image_size_flat, num_channels)
+
+	print("Initiating data")
 	data.train = data.train.init()
 	data.test = data.test.init()
 	data.validation = data.validation.init()
+
+
 	data.train._name = "train"
 	data.test._name = "test"
 	data.validation._name = "validation"
+
+
 	data.test.cls = np.argmax(data.test.labels, axis=1)
 
 
 	x = tf.placeholder(tf.float32, shape=[None, image_size_flat], name='x')
+
+
 	x_image = tf.reshape(x, [-1, image_size, image_size, num_channels])
+
+
 	y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
 	y_true_cls = tf.argmax(y_true, axis=1)
 
