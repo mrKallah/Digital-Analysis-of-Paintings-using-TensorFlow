@@ -33,9 +33,7 @@ from sklearn.metrics import confusion_matrix
 from datetime import timedelta
 
 import tensorflow as tf
-import numpy as np
 
-import os
 import warnings
 import time
 
@@ -73,15 +71,22 @@ true = True
 false = False
 none = None
 
+image_size              = 200 	# size of the images
+num_channels            = 1  	# Number of color channels for the images: 1 channel for gray-scale, 3 for color
+num_augment             = 40     # How many augmentations to make each image into
+filter_size1            = 10    # Layer 1. Convolution filters are filter_size x filter_size pixels. might change this to 0.178 * img_size xxx
+num_filters1            = 16    # Layer 1. There are n of these filters.
+filter_size2            = 10    # Layer 2. Convolution filters are n x n pixels.
+num_filters2            = 36    # Layer 2. There are n of these filters.
+fc_size                 = 128   # Number of neurons in fully-connected layer.
+optimization_iterations = 100   # The amount of iterations for the optimization
 
-optimization_iterations = 100 					# The amount of iterations for the optimization
-print_regularity = 10                           # How often the training accuracy is printed during optimization
-image_size = 100 								# size of the images
+
+print_and_save_regularity = 10                  # How often the accuracy is printed during optimization. Saves happen in same loop
 image_size_flat = image_size * image_size  	    # Images are stored in one-dimensional arrays of this length.
 image_shape = (image_size, image_size)  		# Tuple with height and width of images used to reshape arrays.
-num_channels = 1  								# Number of color channels for the images: 1 channel for gray-scale, 3 for color
 num_classes = 2  								# Number of classes, one class for each of 10 digits.
-plt_show = true  								# To show the plotted values set to true, to never plot anything set to false
+plt_show = False  								# To show the plotted values set to true, to never plot anything set to false
 class_zero = "rand"
 class_one = "kw"
 file_name_identifier = "kw"  					# something distinguishable to tell the two images apart
@@ -90,20 +95,9 @@ train_batch_size = 64							# The size each training cycle gets split into. Spli
 train_data_directory = "resized/train"			# directory to load the train images
 test_data_directory = "resized/test"			# directory to load the train images
 validation_data_directory = "resized/validate"	# directory to load the train images
+augment = True                                  # Whether or not to augment
 
-########################
-####	Layers	#####
-########################
 
-test_size = 10
-# Convolutional Layer 1.
-filter_size1 = test_size  # Convolution filters are filter_size x filter_size pixels. might change this to 0.178 * img_size xxx
-num_filters1 = 16  # There are 16 of these filters.
-# Convolutional Layer 2.
-filter_size2 = test_size  # Convolution filters are 5 x 5 pixels.
-num_filters2 = 36  # There are 36 of these filters.
-# Fully-connected layer.
-fc_size = 128  # Number of neurons in fully-connected layer.
 
 x = None
 y_true = None
@@ -119,7 +113,8 @@ accuracy = None
 
 # Counter for total number of iterations performed so far.
 total_iterations = 0
-def optimize(num_iterations, data):
+global_best = 0
+def optimize(num_iterations, data, saver):
 	# Ensure we update the global variable rather than a local copy.
 	global total_iterations
 	global x
@@ -127,6 +122,7 @@ def optimize(num_iterations, data):
 	global session
 	global optimizer
 	global accuracy
+	global global_best
 
 	# Start-time used for printing time-usage below.
 	start_time = time.time()
@@ -153,7 +149,7 @@ def optimize(num_iterations, data):
 		session.run(optimizer, feed_dict=feed_dict_train)
 
 		# Print status every 100 iterations.
-		if i % print_regularity == 0:
+		if i % print_and_save_regularity == 0:
 			# Calculate the accuracy on the training-set.
 			acc = session.run(accuracy, feed_dict=feed_dict_train)
 
@@ -162,6 +158,10 @@ def optimize(num_iterations, data):
 
 			# Print it.
 			print(msg.format(i + 1, acc))
+
+			if acc >= global_best:
+				save(saver, session)
+				global_best = acc
 
 	# Update the total number of iterations performed.
 	total_iterations += num_iterations
@@ -297,9 +297,10 @@ def exit(msg="Program exited as expected with exit function", exit_code=-1):
 def initiate():
 
 	print("Preparing data")
-	aug.prepare_data(train_data_directory, file_name_identifier, image_shape, num_channels)
-	aug.prepare_data(test_data_directory, file_name_identifier, image_shape, num_channels)
-	aug.prepare_data(validation_data_directory, file_name_identifier, image_shape, num_channels)
+	if augment:
+		aug.prepare_data(train_data_directory, file_name_identifier, image_shape, num_channels, num_augment)
+		aug.prepare_data(test_data_directory, file_name_identifier, image_shape, num_channels, num_augment)
+		aug.prepare_data(validation_data_directory, file_name_identifier, image_shape, num_channels, num_augment)
 
 
 	print("Loading data")
@@ -370,6 +371,15 @@ def save(saver, session):
 	print("Model saved in path: %s" % save_path)
 
 
+def load(saver, session):
+	save_dir = 'checkpoints/'
+	save_path = os.path.join(save_dir, 'best_validation')
+	saver.restore(sess=session, save_path=save_path)
+	print("Model restored from path: %s" % save_path)
+
+
+
+
 #############################################################################################
 ####################											#############################
 ####################			   Instructions					#############################
@@ -409,7 +419,7 @@ def main():
 	# Prints accuracy before optimization
 	utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, show_example_errors=True, name="Predicted vs Actual")
 	# Optimizes for num_iterations iterations
-	optimize(optimization_iterations, data)
+	optimize(optimization_iterations, data, saver)
 
 	# prints accuracy after optimization plus example errors and confusion matshow
 	utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, confusion_matrix, show_example_errors=True, show_confusion_matrix=True, name="Predicted vs Actual")

@@ -347,13 +347,15 @@ def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show
 	plot_nine_images(images[0:9], class_one, class_zero, cls_true[0:9], plt_show, cls_pred[0:9], name=name)
 
 
-def print_prediction(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, image, image_shape, plt_show):
+def print_prediction(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, image_shape, plt_show):
 	# Number of images in the test-set.
 	num_test = len(data.test.images)
 
 	# Allocate an array for the predicted classes which
 	# will be calculated in batches and filled into this array.
 	cls_pred = np.zeros(shape=num_test, dtype=np.int)
+
+
 
 	# Now calculate the predicted classes for the batches.
 	# We will just iterate through all the batches.
@@ -398,15 +400,18 @@ def print_prediction(data, batch_size, x, y_true, session, y_pred_cls, class_one
 	acc = float(correct_sum) / num_test
 
 	# Print the accuracy.
-	msg = "Accuracy on Test-Set: {0:.1%} ({1} / {2})"
 	# print(msg.format(acc, correct_sum, num_test))
 
-	if acc == 0:
-		msg = "Image is of type {}".format(class_one)
-		print(msg)
-		plot_image(image, image_shape, plt_show, name=msg)
+	print("cls_pred = {}".format(cls_pred))
+	print("len(data.test.images) = {}".format(len(data.test.images)))
 
-	if acc == 1:
-		msg = "Image is of type {}".format(class_zero)
+	iteration = 0
+	for image in data.test.images:
+		if cls_pred[iteration] == 1:
+			msg = "Image is of type {}".format(class_one)
+		else:
+			msg = "Image is of type {}".format(class_zero)
+
 		print(msg)
 		plot_image(image, image_shape, plt_show, name=msg)
+		iteration = iteration + 1

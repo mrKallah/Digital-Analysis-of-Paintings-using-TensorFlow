@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -62,7 +61,7 @@ def initiate():
 	data.test = data.test.init()
 	data.test._name = "test"
 
-	print(data.test.labels)
+	print("len(data.test.images) = {}".format(len(data.test.images)))
 
 	data.test.cls = np.argmax(data.test.labels, axis=1)
 
@@ -104,6 +103,9 @@ def initiate():
 
 def main():
 	# ensure we use the global variuables rather than local variables
+
+	os.system('python3 resized/load/resize_to_chosen.py')
+
 	global x
 	global y_true
 	global session
@@ -127,10 +129,9 @@ def main():
 
 	print("Session at {} has been restored successfully".format(load_path))
 
-	image = data.test.images
 
 	# prints accuracy after optimization
-	utils.print_prediction(data, 1, x, y_true, session, y_pred_cls, class_one, class_zero, image, image_shape, plt_show)
+	utils.print_prediction(data, 1, x, y_true, session, y_pred_cls, class_one, class_zero, image_shape, plt_show)
 
 
 if __name__ == "__main__":

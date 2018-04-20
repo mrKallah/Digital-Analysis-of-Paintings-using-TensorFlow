@@ -1,0 +1,3 @@
+acc	time		    change
+91.6	32m55		1000 iterations
+91.7    3m04        10 augmen

@@ -10,6 +10,13 @@ import cv2
 
 import VGG16
 import style_data
+import augment as aug
+
+
+
+# the layers of the model to load
+content_layer_ids = [0]
+style_layer_ids = [1]
 
 
 
@@ -126,6 +133,8 @@ def create_content_loss(session, model, content_image, layer_ids):
 	# Calculate the output values of those layers when
 	# feeding the content-image to the model.
 
+
+
 	print("#################### create_content_loss() ####################")
 
 	print("layer_ids = {}".format(layer_ids))
@@ -136,8 +145,16 @@ def create_content_loss(session, model, content_image, layer_ids):
 
 	print("content_image.shape = {}".format(content_image.shape))
 	print("content_image = {}".format(content_image))
+
+
+
 	print("###############################################################")
+	print(aug.iterate())
+
+
+
 	values = session.run(layers, feed_dict=feed_dict)
+	print(aug.iterate())
 
 	# Set the model's graph as the default so we can add
 	# computational nodes to it. It is not always clear
@@ -220,6 +237,8 @@ def create_style_loss(session, model, style_image, layer_ids):
 	# Get references to the tensors for the given layers.
 	layers = model.get_layer_tensors(model, layer_ids)
 
+	print("layers = {}".format(layers))
+
 	# Set the model's graph as the default so we can add
 	# computational nodes to it. It is not always clear
 	# when this is necessary in TensorFlow, but if you
@@ -233,30 +252,24 @@ def create_style_loss(session, model, style_image, layer_ids):
 
 		print("gram_layers = {}".format(gram_layers))
 		print("layers = {}".format(layers))
-		print("feed_dict['y_true:0'].shape = {}".format(feed_dict['y_true:0'].shape))
+		# print("feed_dict['y_true:0'].shape = {}".format(feed_dict['y_true:0'].shape))
 
 		print("###############################################################")
 
-		print("zero")
 
 		# Calculate the values of those Gram-matrices when
 		# feeding the style-image to the model.
 		values = session.run(gram_layers, feed_dict=feed_dict)
 
-		print("one")
-
 		# Initialize an empty list of loss-functions.
 		layer_losses = []
-		print("two")
 		# For each Gram-matrix layer and its corresponding values.
 		for value, gram_layer in zip(values, gram_layers):
 			# These are the Gram-matrix values that are calculated
 			# for this layer in the model when inputting the
 			# style-image. Wrap it to ensure it is a const,
 			# although this may be done automatically by TensorFlow.
-			print("three")
 			value_const = tf.constant(value)
-			print("four")
 			# The loss-function for this layer is the
 			# Mean Squared Error between the Gram-matrix values
 			# for the content- and mixed-images.
@@ -264,27 +277,44 @@ def create_style_loss(session, model, style_image, layer_ids):
 			# yet, we are merely creating the operations
 			# for calculating the MSE between those two.
 			loss = mean_squared_error(gram_layer, value_const)
-			print("five")
 
 			# Add the loss-function for this layer to the
 			# list of loss-functions.
 			layer_losses.append(loss)
-			print("six")
+
 
 		# The combined loss for all layers is just the average.
 		# The loss-functions could be weighted differently for
 		# each layer. You can try it and see what happens.
 		total_loss = tf.reduce_mean(layer_losses)
-		print("seven")
+
 
 	return total_loss
 
 
 def create_denoise_loss(model):
-	loss = tf.reduce_sum(tf.abs(model.input[:, 1:, :, :] - model.input[:, :-1, :, :])) + \
-	       tf.reduce_sum(tf.abs(model.input[:, :, 1:, :] - model.input[:, :, :-1, :]))
+	out = model.input
 
-	return loss
+	l = out.get_shape()[0]
+	a = out[0:l - 1]
+	b = out[1:l]
+	c = tf.where(a < b, tf.ones_like(a), tf.zeros_like(a))
+
+
+
+	print("#################### create_denoise_loss() ####################")
+	print("a = {}".format(a))
+	print("b = {}".format(b))
+	print("c = {}".format(c))
+	print("tf.reduce_sum(c) = {}".format(tf.reduce_mean(c)))
+	print("###############################################################")
+
+
+
+
+
+	return tf.reduce_sum(c)
+
 
 
 def get_image(path):
@@ -300,8 +330,7 @@ def get_image(path):
 
 first_run = True
 def style_transfer(content_image, style_image, content_layer_ids, style_layer_ids, weight_content=1.5,
-                   weight_style=10.0,
-                   weight_denoise=0.3, num_iterations=120, step_size=10.0):
+					weight_style=10.0, weight_denoise=0.3, num_iterations=120, step_size=10.0):
 	"""
 	Use gradient descent to find an image that minimizes the
 	loss-functions of the content-layers and style-layers. This
@@ -326,13 +355,16 @@ def style_transfer(content_image, style_image, content_layer_ids, style_layer_id
 	# operations to the graph so it can grow very large
 	# and run out of RAM if we keep using the same instance.
 
-
+	print("frog")
 	global first_run
 	if first_run == True:
 		model = style_data.init()
 	else:
 		model = style_data
 	first_run = False
+	print("bear")
+
+
 
 
 	# Create a TensorFlow-session.
@@ -365,6 +397,10 @@ def style_transfer(content_image, style_image, content_layer_ids, style_layer_id
 	# Create the loss-function for the denoising of the mixed-image.
 	loss_denoise = create_denoise_loss(model)
 
+
+	print("#################### style_transfer2() ####################")
+	print("loss_denoise = {}".format(loss_denoise))
+
 	# Create TensorFlow variables for adjusting the values of
 	# the loss-functions. This is explained below.
 	adj_content = tf.Variable(1e-10, name='adj_content')
@@ -390,31 +426,93 @@ def style_transfer(content_image, style_image, content_layer_ids, style_layer_id
 	# adjustment values, we can use relative weights for the
 	# loss-functions that are easier to select, as they are
 	# independent of the exact choice of style- and content-layers.
-	loss_combined = weight_content * adj_content * loss_content + \
-	                weight_style * adj_style * loss_style + \
-	                weight_denoise * adj_denoise * loss_denoise
+	loss_combined = weight_content * adj_content * loss_content + weight_style * adj_style * loss_style + weight_denoise * adj_denoise * loss_denoise
+
+	print("weight_content = {}".format(weight_content))
+	print("adj_content = {}".format(adj_content))
+	print("loss_content = {}".format(loss_content))
+	print("weight_style = {}".format(weight_style))
+	print("adj_style = {}".format(adj_style))
+	print("loss_style = {}".format(loss_style))
+	print("weight_denoise = {}".format(weight_denoise))
+	print("adj_denoise = {}".format(adj_denoise))
+	print("loss_denoise = {}".format(loss_denoise))
+	print("loss_combined = {}".format(loss_combined))
+
 
 	# Use TensorFlow to get the mathematical function for the
 	# gradient of the combined loss-function with regard to
 	# the input image.
-	gradient = tf.gradients(loss_combined, model.input)
+	gradient = tf.gradients(tf.reduce_mean(loss_combined) + model.input, [loss_combined, model.input], stop_gradients=[loss_combined, model.input])
+	# gradient = tf.gradients(loss_combined, model.input)
+
+
 
 	# List of tensors that we will run in each optimization iteration.
-	run_list = [gradient, update_adj_content, update_adj_style, \
-	            update_adj_denoise]
+	run_list = [gradient, update_adj_content, update_adj_style, update_adj_denoise]
 
 	# The mixed-image is initialized with random noise.
 	# It is the same size as the content-image.
-	mixed_image = np.random.rand(*content_image.shape) + 128
+	mixed_image = np.random.rand(100,100, 3) + 128
+
+	print(mixed_image.shape)
+
+
+
+	mixed_image = np.asarray(mixed_image, dtype="float32")
+	mixed_image = cv2.cvtColor(mixed_image, cv2.COLOR_RGB2GRAY)
+	mixed_image = cv2.resize(mixed_image, (100, 100))
+	mixed_image = mixed_image.reshape(-1, 10000)
+	print("mixed_image.shape = {}".format(mixed_image.shape))
 
 	for i in range(num_iterations):
 		# Create a feed-dict with the mixed-image.
-		feed_dict = model.create_feed_dict(image=mixed_image)
+		# feed_dict = model.create_feed_dict3(model, mixed_image)
+		# feed_dict = {model.get_tensor_by_name(model, 'style:0'), 'test2:0', mixed_image}
+
+
+		print("#################### !!!!!!!!!!!!!!!!!! ####################")
+		print("mixed_image.shape = {}".format(mixed_image.shape))
+		print("content_image.shape = {}".format(content_image.shape))
+
+
+		print("#################### style_transfer() in loop ####################")
+		print("model.input = {}".format(model.input))
+		print("model.get_layer_tensors(model, [0]) = {}".format(model.get_layer_tensors(model, [0])))
+		print("gradient = {}".format(gradient))
+		print("run_list = {}".format(run_list))
+		print("mixed_image.shape = {}".format(mixed_image.shape))
+		print("content_image.shape = {}".format(content_image.shape))
+		print("num_iterations = {}".format(num_iterations))
+		print("model = {}".format(model))
+		print("mixed_image.shape = {}".format(mixed_image.shape))
+		print("run_list = {}".format(run_list))
+		print("###############################################################")
+		print("layer_id = {}".format([3]))
+		print("run_list = {}".format(run_list))
+
+		# print("feed_dict['test2:0'].shape = {}".format(feed_dict['test2:0'].shape))
+		# print("feed_dict['test2:0'] = {}".format(feed_dict['test2:0']))
+		print("###############################################################")
+		# print(tf.get_default_graph().as_graph_def())
 
 		# Use TensorFlow to calculate the value of the
 		# gradient, as well as updating the adjustment values.
-		grad, adj_content_val, adj_style_val, adj_denoise_val \
-			= session.run(run_list, feed_dict=feed_dict)
+
+		mix = "test2:0"
+		first = 'content:0'
+		secound = 'style:0'
+
+		feed_dict = {first: content_image, secound: style_image, mix: mixed_image}
+
+		run_list = run_list[0][1]
+		print(run_list)
+		print("style_image.shape = {}".format(style_image.shape))
+		print("run_list = {}".format(run_list))
+		print("feed_dict = {}".format(feed_dict))
+
+		grad, adj_content_val, adj_style_val, adj_denoise_val = session.run(run_list, feed_dict=feed_dict)
+		# grad, adj_content_val, adj_style_val, adj_denoise_val = feed_dict={y_previous: y_prev, h_prime_previous: h_prime_prev, "Placeholder:0": np.zeros((100, 1)).as_type(np.float32)}
 
 		# Reduce the dimensionality of the gradient.
 		grad = np.squeeze(grad)
@@ -456,10 +554,10 @@ def main():
 	content_image = load_image(content_image_path, max_size=None)
 	style_image = load_image(style_image_path, max_size=300)
 
-	content_layer_ids = [0]
+	content_image = get_image(content_image_path)
+	style_image = get_image(style_image_path)
 
-	# the layers of the model to load
-	style_layer_ids = [1]
+
 
 	img = style_transfer(content_image=content_image,
 	                     style_image=style_image,

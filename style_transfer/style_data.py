@@ -16,6 +16,7 @@ import tensorflow as tf
 
 #local imports
 from data import *
+
 import utils as utils
 from CNN import new_fc_layer
 from CNN import flatten_layer
@@ -41,6 +42,7 @@ y_true = None               #explained later
 session = None              #explained later
 optimizer = None            #explained later
 accuracy = None             #explained later
+graph = None
 
 image_size = 100 									# size of the images
 image_size_flat = image_size * image_size  			# Images are stored in one-dimensional arrays of this length.
@@ -224,6 +226,7 @@ def graph():
 	global session
 	global optimizer
 	global accuracy
+	global graph
 
 	session = tf.Session()
 	session.run(tf.global_variables_initializer())
@@ -244,32 +247,45 @@ def graph():
 
 
 	w1 = graph.get_tensor_by_name("x:0")
-	w2 = graph.get_tensor_by_name("x2:0")
-	w3 = graph.get_tensor_by_name("y_true:0")
+	w2 = graph.get_tensor_by_name("x:0")
+	w3 = graph.get_tensor_by_name("x:0")
+	w5 = graph.get_tensor_by_name("x:0")
+	w4 = graph.get_tensor_by_name("y_true:0")
 
 
 
 
 	w1 = tf.identity(w1, name="style")
 	w2 = tf.identity(w2, name="content")
+	w3 = tf.identity(w3, name="test")
+	w5 = tf.identity(w5, name="test2")
+
 
 	print("Session at {} has been restored successfully".format(load_path))
 
-	arr = [w1, w2, w3]
+	arr = [w1, w2, w3, w4, w5]
 
-	return graph, session, arr
+	input = w3
+
+	return graph, session, arr, input
 
 
 def init():
-	style_data.set.graph, style_data.set._session, style_data.set.layer_tensors = graph()
+	style_data.set.graph, style_data.set._session, style_data.set.layer_tensors,  style_data.set.input = graph()
 	return style_data.set
 
 
 class style_data:
 
 	class set:
-		layer_names = ['content:0', 'style:0', 'y_true:0']
+		tensor_name_input_image = "content:0"
+		tensor_name_input_image2 = "test2:0"
 
+
+		layer_names = ['content:0', 'style:0', 'test:0', 'y_true:0', 'test2:0']
+
+
+		layer_tensors = []
 
 		# Names of the tensors for the dropout random-values.. not sure if this works
 		tensor_name_dropout = 'dropout/random_uniform:0'
@@ -326,13 +342,61 @@ class style_data:
 
 			return feed_dict
 
+		def create_feed_dict2(self, image):
+			"""
+			Create and return a feed-dict with an image.
+			:param image:
+				The input image is a 3-dim array which is already decoded.
+				The pixels MUST be values between 0 and 255 (float or int).
+			:return:
+				Dict for feeding to the graph in TensorFlow.
+			"""
+
+			# Create feed-dict for inputting data to TensorFlow.
+			feed_dict = {self.tensor_name_input_image: image}
+
+			return feed_dict
+
+		def create_feed_dict3(self, image):
+			"""
+			Create and return a feed-dict with an image.
+			:param image:
+				The input image is a 3-dim array which is already decoded.
+				The pixels MUST be values between 0 and 255 (float or int).
+			:return:
+				Dict for feeding to the graph in TensorFlow.
+			"""
+
+			# Create feed-dict for inputting data to TensorFlow.
+			feed_dict = {self.tensor_name_input_image2: image}
+
+			return feed_dict
+
 		def get_layer_tensors(self, layer_ids):
 			"""
 			Return a list of references to the tensors for the layers with the given id's.
 			"""
-			test = [self.layer_tensors[idx] for idx in layer_ids]
+
+			print("layer 0 = {}".format(self.layer_tensors[0]))
+			print("layer 1 = {}".format(self.layer_tensors[1]))
+
+
+			if layer_ids == [0]:
+				test = [self.layer_tensors[1]]
+			else:
+				test = [self.layer_tensors[0]]
+
+			# test = [self.layer_tensors[idx] for idx in layer_ids]
+
 
 			return test
+
+		def get_tensor_by_name(self, name):
+			"""
+			Return a list of references to the tensors for the layers with the given id's.
+			"""
+			tensor = graph.get_tensor_by_name(name)
+			return tensor
 
 		_index_in_epoch = 0
 		_epochs_completed = 0
