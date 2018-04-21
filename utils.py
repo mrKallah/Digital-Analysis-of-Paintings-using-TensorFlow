@@ -3,7 +3,6 @@ import math
 import numpy as np
 
 
-
 def plot_image(image, img_shape, plt_show, name=""):
 	'''
 	:param image: the image to plot
@@ -22,7 +21,7 @@ def plot_image(image, img_shape, plt_show, name=""):
 		plt.show()
 
 
-def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, cls_pred=None, name=""):
+def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, img_shape, cls_pred=None, name=""):
 	'''
 	:param images: the images to plot
 	:param class_one: name to identify class one
@@ -45,7 +44,12 @@ def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, cls_pred
 
 	for i, ax in enumerate(axes.flat):
 		# Plot image.
-		ax.imshow(images[i].reshape(100,100), cmap='gray')
+
+		img = images[i]
+		cpy = np.copy(img)
+		cpy = cpy.reshape(img_shape)
+		cpy = np.resize(cpy, (100, 100))
+		ax.imshow(cpy)
 
 		# Show true and predicted classes.
 		if cls_pred is None:
@@ -198,7 +202,7 @@ def plot_conv_weights(weights, session, plt_show, convolutional_layer=0, name=""
 		plt.show()
 
 
-def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, confusion_matrix=None, num_classes=2, show_example_errors=False, show_confusion_matrix=False, name=""):
+def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, img_shape, confusion_matrix=None, num_classes=2, show_example_errors=False, show_confusion_matrix=False, name=""):
 	'''
 	:param data: the data object
 	:param batch_size: size of the batches
@@ -258,6 +262,8 @@ def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_
 
 	# Calculate the number of correctly classified images.
 	# When summing a boolean array, False means 0 and True means 1.
+
+
 	correct_sum = correct.sum()
 
 	# Classification accuracy is the number of correctly classified
@@ -270,12 +276,14 @@ def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_
 
 	# Plot some examples of mis-classifications, if desired.
 	if show_example_errors:
-		plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, name=name)
+		plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, img_shape=img_shape, name=name)
+
 
 	# Plot the confusion matrix, if desired.
 	if show_confusion_matrix:
 		print("Confusion Matrix:")
 		plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_show, name=name)
+	return acc
 
 
 def plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_show, name=""):
@@ -320,7 +328,7 @@ def plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_sho
 		plt.show()
 
 
-def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, name=""):
+def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, img_shape, name=""):
 
 	# This function is called from print_test_accuracy() below.
 
@@ -344,7 +352,7 @@ def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show
 	cls_true = data.test.cls[incorrect]
 
 	# Plot the first 9 images.
-	plot_nine_images(images[0:9], class_one, class_zero, cls_true[0:9], plt_show, cls_pred[0:9], name=name)
+	plot_nine_images(images[0:9], class_one, class_zero, cls_true[0:9], plt_show, img_shape=img_shape, name=name)
 
 
 def print_prediction(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, image_shape, plt_show):
