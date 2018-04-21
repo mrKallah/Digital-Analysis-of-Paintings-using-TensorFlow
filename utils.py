@@ -1,9 +1,10 @@
 import matplotlib.pyplot as plt
 import math
 import numpy as np
+import cv2
 
 
-def plot_image(image, img_shape, plt_show, name=""):
+def plot_image(image, img_shape, plt_show, channels, name=""):
 	'''
 	:param image: the image to plot
 	:param img_shape: the shape of the image
@@ -13,15 +14,25 @@ def plot_image(image, img_shape, plt_show, name=""):
 	fig = plt.figure()
 	fig.canvas.set_window_title(name)
 	plt.suptitle(name)
-	plt.imshow(image.reshape(img_shape),
-			   interpolation='nearest',
-			   cmap='gray')
+	if channels == 3:
+		# image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+		cpy = image.reshape((img_shape[0], img_shape[1], 3))
+		cpy = cv2.cvtColor(cpy, cv2.COLOR_BGR2RGB)
+		cv2.imwrite("tmp_img/cpy.png", cpy)
+		cpy = cv2.imread("tmp_img/cpy.png")
+		plt.imshow(cpy,
+			        interpolation='nearest')
+	else:
+		plt.imshow(image.reshape(img_shape),
+			        interpolation='nearest',
+		            cmap='gray')
 
 	if plt_show == True:
 		plt.show()
 
 
-def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, img_shape, cls_pred=None, name=""):
+def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, img_shape, channels, cls_pred=None, name=""):
 	'''
 	:param images: the images to plot
 	:param class_one: name to identify class one
@@ -47,8 +58,19 @@ def plot_nine_images(images, class_one, class_zero, cls_true, plt_show, img_shap
 
 		img = images[i]
 		cpy = np.copy(img)
-		cpy = cpy.reshape(img_shape)
-		cpy = np.resize(cpy, (100, 100))
+
+		if channels == 3:
+			cpy = cpy.reshape((img_shape[0], img_shape[1], 3))
+			cpy = cv2.resize(cpy, (100, 100))
+			cpy = cv2.cvtColor(cpy, cv2.COLOR_BGR2RGB)
+			cv2.imwrite("tmp_img/cpy.png", cpy)
+			cpy = cv2.imread("tmp_img/cpy.png")  #not sure why it's not working without but this fixes some color isssues
+			# exit()
+		else:
+			cpy = cpy.reshape(img_shape)
+			cpy = np.resize(cpy, (100, 100))
+			cv2.imwrite("tmp_img/cpy.png", cpy)
+			cpy = cv2.imread("tmp_img/cpy.png")  #not sure why it's not working without but this fixes some color isssues
 		ax.imshow(cpy)
 
 		# Show true and predicted classes.
@@ -202,7 +224,7 @@ def plot_conv_weights(weights, session, plt_show, convolutional_layer=0, name=""
 		plt.show()
 
 
-def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, img_shape, confusion_matrix=None, num_classes=2, show_example_errors=False, show_confusion_matrix=False, name=""):
+def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, img_shape, channels, confusion_matrix=None, num_classes=2, show_example_errors=False, show_confusion_matrix=False, name=""):
 	'''
 	:param data: the data object
 	:param batch_size: size of the batches
@@ -248,6 +270,9 @@ def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_
 					 y_true: labels}
 
 		# Calculate the predicted class using TensorFlow.
+
+		# exit()
+
 		cls_pred[i:j] = session.run(y_pred_cls, feed_dict=feed_dict)
 
 		# Set the start-index for the next batch to the
@@ -276,14 +301,14 @@ def print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_
 
 	# Plot some examples of mis-classifications, if desired.
 	if show_example_errors:
-		plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, img_shape=img_shape, name=name)
+		plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, channels=channels, img_shape=img_shape, name=name)
 
-
+	cm = None
 	# Plot the confusion matrix, if desired.
 	if show_confusion_matrix:
 		print("Confusion Matrix:")
-		plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_show, name=name)
-	return acc
+		cm = plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_show, name=name)
+	return acc, cm
 
 
 def plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_show, name=""):
@@ -326,9 +351,10 @@ def plot_confusion_matrix(cls_pred, data, confusion_matrix, num_classes, plt_sho
 	# in a single Notebook cell.
 	if plt_show == True:
 		plt.show()
+	return cm
 
 
-def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, img_shape, name=""):
+def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show, img_shape, channels, name=""):
 
 	# This function is called from print_test_accuracy() below.
 
@@ -352,7 +378,7 @@ def plot_example_errors(cls_pred, correct, data, class_one, class_zero, plt_show
 	cls_true = data.test.cls[incorrect]
 
 	# Plot the first 9 images.
-	plot_nine_images(images[0:9], class_one, class_zero, cls_true[0:9], plt_show, img_shape=img_shape, name=name)
+	plot_nine_images(images[0:9], class_one, class_zero, cls_true[0:9], plt_show, channels=channels, img_shape=img_shape, name=name)
 
 
 def print_prediction(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, image_shape, plt_show):

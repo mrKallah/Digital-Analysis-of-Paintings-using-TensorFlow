@@ -96,7 +96,10 @@ def load_data(data_directory, file_name_identifier, img_size_flat, channels, fil
 	labels = np.asarray(labels)
 
 	# reshapes the images to be of the correct shape
-	images = images.reshape(-1, img_size_flat)
+	if channels == 3:
+		images = images.reshape(-1, img_size_flat, 3)
+	else:
+		images = images.reshape(-1, img_size_flat)
 	return images, labels
 
 

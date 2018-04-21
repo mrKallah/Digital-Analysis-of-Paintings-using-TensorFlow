@@ -79,14 +79,14 @@ num_filters1            = 16    # Layer 1. There are n of these filters.
 filter_size2            = 10    # Layer 2. Convolution filters are n x n pixels.
 num_filters2            = 36    # Layer 2. There are n of these filters.
 fc_size                 = 128   # Number of neurons in fully-connected layer.
-optimization_iterations = 100   # The amount of iterations for the optimization
+optimization_iterations = 1   # The amount of iterations for the optimization
 
 
 print_and_save_regularity = 1                   # How often the accuracy is printed during optimization. Saves happen in same loop
 image_size_flat = image_size * image_size  	    # Images are stored in one-dimensional arrays of this length.
 image_shape = (image_size, image_size)  		# Tuple with height and width of images used to reshape arrays.
 num_classes = 2  								# Number of classes, one class for each of 10 digits.
-plt_show = False  								# To show the plotted values set to true, to never plot anything set to false
+plt_show = True  								# To show the plotted values set to true, to never plot anything set to false
 class_zero = "rand"
 class_one = "gogh"
 file_name_identifier = "gogh"  					# something distinguishable to tell the two images apart
@@ -95,11 +95,12 @@ train_batch_size = 64							# The size each training cycle gets split into. Spli
 train_data_directory = "resized/train"			# directory to load the train images
 test_data_directory = "resized/test"			# directory to load the train images
 validation_data_directory = "resized/validate"	# directory to load the train images
-augment = true                                  # Whether or not to augment
+augment = True                                 # Whether or not to augment, if img_size or num_augment has change this must be true
 
 
 test_accuracy = 0
 total_time = 0
+cm = None
 x = None
 y_true = None
 session = None
@@ -376,11 +377,12 @@ def initiate():
 
 	data.test.cls = np.argmax(data.test.labels, axis=1)
 
+	if num_channels == 3:
+		x = tf.placeholder(tf.float32, shape=[None, image_size_flat, num_channels], name='x')
+	else:
+		x = tf.placeholder(tf.float32, shape=[None, image_size_flat], name='x')
 
-	x = tf.placeholder(tf.float32, shape=[None, image_size_flat], name='x')
-
-
-	x_image = tf.reshape(x, [-1, image_size, image_size, num_channels])
+	x_image = tf.reshape(x, [-1, image_size, image_size, num_channels]) #error123
 
 
 	y_true = tf.placeholder(tf.float32, shape=[None, num_classes], name='y_true')
@@ -434,14 +436,16 @@ def load(saver, session):
 
 
 def print_var():
-	return "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}"\
-		.format(image_size, num_channels, num_augment, filter_size1, num_filters1, filter_size2, num_filters2, fc_size, optimization_iterations, test_accuracy, total_time)
+	return "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}"\
+		.format(image_size, num_channels, num_augment, filter_size1, num_filters1, filter_size2, num_filters2, \
+		fc_size, optimization_iterations, test_accuracy, total_time, cm)
 
 
 def print_header():
-	return "image_size\tnum_channels\tnum_augment\tfilter_size1\tnum_filters1\tfilter_size2\tnum_filters2\tfc_size\toptimization_iterations\ttest_acc\ttime"
+	return "image_size\tnum_channels\tnum_augment\tfilter_size1\tnum_filters1\tfilter_size2\tnum_filters2\tfc_size\toptimization_iterations\ttest_acc\ttime\tconfusion_matrix"
 
-def print_many(img_size, num_chan, num_aug, fs1, num_fs1, fs2, num_fs2, size_fc, num_optim_iter):
+
+def run_many(img_size, num_chan, num_aug, fs1, num_fs1, fs2, num_fs2, size_fc, num_optim_iter):
 	global image_size
 	global num_channels
 	global num_augment
@@ -464,7 +468,13 @@ def print_many(img_size, num_chan, num_aug, fs1, num_fs1, fs2, num_fs2, size_fc,
 
 	init_rand_var()
 
+
+
 	main()
+
+	print(confusion_matrix)
+
+
 	f = open("results.txt", "a+")
 	f.write(print_var())
 	f.write("\n")
@@ -496,7 +506,7 @@ def main():
 	cls_true = data.test.cls[0:9]
 
 	# Plot the images and labels
-	utils.plot_nine_images(images, class_one, class_zero, cls_true, plt_show, image_shape, name="The 9 first images from the data")
+	utils.plot_nine_images(images, class_one, class_zero, cls_true, plt_show, image_shape, channels=num_channels, name="The 9 first images from the data")
 
 	#############################################################################################
 	####################											#############################
@@ -508,13 +518,14 @@ def main():
 	session.run(tf.global_variables_initializer())
 
 	# Prints accuracy before optimization
-	utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, img_shape=image_shape, show_example_errors=True, name="Predicted vs Actual")
+	utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, channels=num_channels, img_shape=image_shape, show_example_errors=True, name="Predicted vs Actual")
 	# Optimizes for num_iterations iterations
 	optimize(optimization_iterations, data, saver)
-
+	load(saver,session)
 	# prints accuracy after optimization plus example errors and confusion matshow
 	global test_accuracy
-	test_accuracy = utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, confusion_matrix=confusion_matrix, img_shape=image_shape, show_example_errors=True, show_confusion_matrix=True, name="Predicted vs Actual")
+	global cm
+	test_accuracy, cm = utils.print_test_accuracy(data, batch_size, x, y_true, session, y_pred_cls, class_one, class_zero, plt_show, channels=num_channels, confusion_matrix=confusion_matrix, img_shape=image_shape, show_example_errors=True, show_confusion_matrix=True, name="Predicted vs Actual")
 
 	#############################################################################################
 	####################											#############################
@@ -534,8 +545,8 @@ def main():
 	image2 = data.test.images[13]
 
 	if plt_show == true:
-		utils.plot_image(image1, image_shape, plt_show, name="A random image from the test set, will be refereed to as image1")
-		utils.plot_image(image2, image_shape, plt_show, name="A random image from the test set, will be refereed to as image2")
+		utils.plot_image(image1, image_shape, plt_show, num_channels, name="A random image from the test set, will be refereed to as image1")
+		utils.plot_image(image2, image_shape, plt_show, num_channels, name="A random image from the test set, will be refereed to as image2")
 
 		utils.plot_conv_weights(weights_conv1, session, plt_show, name="Filter-weights for the first convolutional layer")
 
