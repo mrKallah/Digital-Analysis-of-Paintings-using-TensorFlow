@@ -1,0 +1,176 @@
+*	=	
+**	=	
+***	=	
+x	=	not before after dist is done
+
+
+Goals:
+10/04/18
+Augmentations done						|	***
+loading implemented						|	
+Webpage loading bar						|	***
+RSS										|	***
+Blog Post				
+########################################################################################################################
+########################################################################################################################
+11/04/18
+loading implemented						|	**
+rezise then augment     				|	*
+color images							|	
+Blog Post								|	**
+nst_load								|	
+########################################################################################################################
+########################################################################################################################
+12/04/18	
+loading implemented						|	***
+rezise then augment     				|	***
+color images							|	
+Blog Post								|	***
+nst_load								|	
+report									|	
+write augmentation tests				|	
+write other tests						|	
+How to evaluate NST 					|	
+file name | grep jpg					|	*** #none of the files wrong format
+########################################################################################################################
+########################################################################################################################
+13/04/18
+color images							|	
+nst_load								|	
+report									|	
+loading									|	***
+write augmentation tests				|	***
+write other tests						|	***
+blog about tests						|	***
+How to evaluate NST 					|
+########################################################################################################################
+########################################################################################################################
+14/04/18 - 17/04/18
+color images							|	
+nst_load								|	
+report									|	
+How to evaluate NST 					|	
+Make loading more intuative				|	***
+classifing based on augmentations		|	
+save on best results					|	
+favicon.ico on kallah.co				|	
+User Agent Stylesheet					|	
+########################################################################################################################
+########################################################################################################################
+18/04/18 - 19/04/18
+color images							|	
+nst_load								|	
+report									|	
+How to evaluate NST 					|	
+Make loading more intuative				|	***
+classifing based on augmentations		|	
+save on best results					|	
+favicon.ico on kallah.co				|	***
+User Agent Stylesheet					|
+########################################################################################################################
+########################################################################################################################
+20/04/18
+color images							|
+nst_load								|
+report									|
+How to evaluate NST 					|
+classifing based on augmentations		|
+save on best results					|	***
+load on after optimization              |
+User Agent Stylesheet					|
+########################################################################################################################
+########################################################################################################################
+21/04/18 - 22/04/18
+color images							|	***
+nst_load								|
+report									|
+How to evaluate NST 					|
+classifing based on augmentations		|
+load on after optimization              |   ***
+User Agent Stylesheet					|	
+Fix ram usage on augment				|	
+########################################################################################################################
+########################################################################################################################
+23/04/18 - 25/04/18
+nst_load								|
+report									|
+How to evaluate NST 					|
+classifing based on augmentations		|
+User Agent Stylesheet					|	
+Fix ram usage on augment				|	***
+Testing									|	***
+Friday Report 5 O'clock					|	**
+########################################################################################################################
+########################################################################################################################
+26/04/18 - 01/05/18 
+CNN web interface						|	x
+nst_load								|	
+report									|	**
+How to evaluate NST 					|	
+classifing based on augmentations		|	x
+User Agent Stylesheet					|	x
+Testing									|	***
+Friday Report 5 O'clock					|	***
+Fix Affine Transform                    |	***
+Augment check variables before			|	
+1	Add more comments to code			|	***
+2	NST									|	
+3	Fix Tests							|	***
+4	User Interface						|	
+5	Re-write Classification				|	x
+add the import versions to README		|	***
+gather results... again					|	***
+fix test-train-validation usage			|	
+validation stuff						|	
+one_hot stuff							|	
+fix saving tied to print interval		|	
+#########################################
+Comments								
+data.py									|	***
+tests.py								|	***
+classify.py								|	***
+NST.py									|	x
+run_cnn.py								|	***
+CNN.py									|	***
+style_data.py							|	x
+resize_to_chosen.py						|	***
+run_many.py								|	***
+utils.py								|	***
+augment.py								|	***	
+########################################################################################################################
+########################################################################################################################
+02/05/18 - 
+CNN web interface						|	x
+classifing based on augmentations		|	x
+User Agent Stylesheet					|	x
+nst_load								|	x
+How to evaluate NST 					|	x
+Augment check variables before			|	x
+1	NST									|	x
+2	User Interface						|	x
+3	Re-write Classification				|	x
+fix test-train-validation usage			|	x
+validation stuff						|	x
+invert the one_hot encoder				|	x
+finish the readme in the project folder	|	***
+NST color								|	***
+report									|	***
+
+
+
+sources									|	***
+Table x									|	***
+Figure X								|	***
+spell check								|	***
+'										|	***
+read trough								|	
+update table of content					|	
+word count								|	
+got										|	
+
+
+
+
+
+
+
